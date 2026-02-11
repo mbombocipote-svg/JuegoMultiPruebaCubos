@@ -2,30 +2,30 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cubo FPS - Conexión Total</title>
+    <title>Cubo FPS - Versión Relays 2026</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #05050a; font-family: 'Segoe UI', sans-serif; }
         #menu-inicio {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: rgba(10, 10, 25, 0.95); padding: 30px; border-radius: 20px;
-            color: white; text-align: center; border: 2px solid #00ff88; z-index: 100;
+            color: white; text-align: center; border: 2px solid #00d4ff; z-index: 100;
         }
         .slider-container { margin: 20px 0; }
-        input[type=range] { width: 100%; accent-color: #00ff88; cursor: pointer; }
+        input[type=range] { width: 100%; accent-color: #00d4ff; cursor: pointer; }
         button {
-            background: #00ff88; border: none; padding: 12px 40px;
+            background: #00d4ff; border: none; padding: 12px 40px;
             font-size: 1.1em; font-weight: bold; border-radius: 8px;
             cursor: pointer; transition: 0.3s;
         }
-        button:hover { background: #00cc7a; transform: scale(1.05); }
+        button:hover { background: #0099ff; transform: scale(1.05); }
         #ui { position: absolute; top: 20px; left: 20px; color: white; display: none; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; }
     </style>
 </head>
 <body>
 
 <div id="menu-inicio">
-    <h1 style="margin:0; color: #00ff88;">CUBO ARENA</h1>
-    <p id="status-text" style="color: #aaa;">Estado: Conectando vía Firebase...</p>
+    <h1 style="margin:0; color: #00d4ff;">CUBO ARENA</h1>
+    <p id="status-text" style="color: #aaa;">Estado: Buscando Red...</p>
     <div class="slider-container">
         <label>Sensibilidad: <span id="sens-val">0.0020</span></label><br><br>
         <input type="range" id="sens-slider" min="0.0005" max="0.01" step="0.0005" value="0.002">
@@ -37,19 +37,26 @@
 
 <script type="module">
     import * as THREE from 'https://esm.sh/three@0.160.0';
-    // Cambiamos a la estrategia de Firebase (mucho más difícil de bloquear)
-    import { joinRoom } from 'https://esm.sh/trystero@0.22.0/firebase';
+    import { joinRoom } from 'https://esm.sh/trystero@0.22.0/nostr';
 
     let sensibilidad = 0.002;
     let juegoIniciado = false;
     const myColor = Math.floor(Math.random() * 0xffffff);
     let peers = {};
 
-    // --- CONFIGURACIÓN DE FIREBASE ---
-    // Usamos una base de datos pública temporal para que funcione sin que crees cuenta
-    const config = { appId: 'cubo-arena-v2026-final' };
-    const room = joinRoom(config, 'sala-universal-1');
+    // --- SELECCIÓN DE RELAYS FIABLES (2026) ---
+    const config = { 
+        appId: 'cubo-arena-final-v26',
+        // Usamos solo relays que suelen tener certificados SSL perfectos
+        relayUrls: [
+            'wss://relay.damus.io',
+            'wss://nos.lol',
+            'wss://relay.snort.social',
+            'wss://offchain.pub'
+        ]
+    };
     
+    const room = joinRoom(config, 'sala-super-final-99');
     const [sendMove, getMove] = room.makeAction('m');
     const [sendColor, getColor] = room.makeAction('c');
 
@@ -65,7 +72,7 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
     scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2));
-    scene.add(new THREE.GridHelper(100, 50, 0x00ff88, 0x222222));
+    scene.add(new THREE.GridHelper(100, 50, 0x00d4ff, 0x222222));
     cameraGroup.position.set(Math.random()*4, 1, Math.random()*4);
 
     // --- INTERFAZ ---
@@ -84,7 +91,7 @@
         document.getElementById('ui').style.display = juegoIniciado ? 'block' : 'none';
     });
 
-    // --- RED ---
+    // --- LÓGICA DE RED ---
     room.onPeerJoin(id => {
         document.getElementById('status-text').innerText = "¡Conectado!";
         document.getElementById('status-text').style.color = "#00ff88";
@@ -148,3 +155,4 @@
 </script>
 </body>
 </html>
+
