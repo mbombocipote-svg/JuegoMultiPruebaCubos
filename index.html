@@ -2,64 +2,40 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cubo FPS - Conexión Blindada Supabase</title>
+    <title>Cubo FPS - Conexión Definitiva</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #05050a; font-family: 'Segoe UI', sans-serif; }
+        body { margin: 0; overflow: hidden; background-color: #05050a; font-family: sans-serif; }
         #menu-inicio {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: rgba(10, 10, 25, 0.95); padding: 30px; border-radius: 20px;
-            color: white; text-align: center; border: 2px solid #ff4b2b; z-index: 100;
+            color: white; text-align: center; border: 2px solid #00ff88; z-index: 100;
         }
-        .slider-container { margin: 20px 0; }
-        input[type=range] { width: 100%; accent-color: #ff4b2b; cursor: pointer; }
         button {
-            background: #ff4b2b; border: none; padding: 12px 40px;
+            background: #00ff88; border: none; padding: 12px 40px;
             font-size: 1.1em; font-weight: bold; border-radius: 8px;
-            cursor: pointer; transition: 0.3s; color: white;
+            cursor: pointer; transition: 0.3s;
         }
-        button:hover { background: #ff416c; transform: scale(1.05); }
         #ui { position: absolute; top: 20px; left: 20px; color: white; display: none; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; }
     </style>
 </head>
 <body>
 
 <div id="menu-inicio">
-    <h1 style="margin:0; color: #ff4b2b;">CUBO ARENA</h1>
-    <p id="status-text" style="color: #aaa;">Estado: Intentando conexión segura...</p>
-    <div class="slider-container">
-        <label>Sensibilidad: <span id="sens-val">0.0020</span></label><br><br>
-        <input type="range" id="sens-slider" min="0.0005" max="0.01" step="0.0005" value="0.002">
-    </div>
+    <h1 style="margin:0; color: #00ff88;">CUBO ARENA</h1>
+    <p id="status-text" style="color: #aaa;">Estado: Conectando...</p>
     <button id="btn-play">ENTRAR A JUGAR</button>
 </div>
 
 <div id="ui">Jugadores: <span id="count">1</span></div>
 
 <script type="module">
-    import * as THREE from 'https://esm.sh/three@0.160.0';
-    import { joinRoom } from 'https://esm.sh/trystero@0.22.0/supabase';
+    import * as THREE from 'https://cdn.skypack.dev/three@0.160.0';
+    import { joinRoom } from 'https://cdn.skypack.dev/trystero@0.22.0/mqtt';
 
-    let sensibilidad = 0.002;
-    let juegoIniciado = false;
+    const config = { appId: 'cubo-arena-final-v99' };
     const myColor = Math.floor(Math.random() * 0xffffff);
     let peers = {};
-
-    // --- CONFIGURACIÓN SUPABASE (Infraestructura Web Estándar) ---
-    // Estos datos son de un proyecto de prueba. Si fallan certificados aquí, es algo de tu PC/Red.
-    const config = {
-        supabaseUrl: 'https://pjkpbclscniyvsqyvclm.supabase.co',
-        supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqa3BiY2xzY25peXZzcXl2Y2xtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDY3MDU0MDIsImV4cCI6MjAyMjI4MTQwMn0.VlZfV4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF'
-    };
-
     let room;
-    try {
-        room = joinRoom(config, 'sala_cubos_supabase');
-    } catch (e) {
-        document.getElementById('status-text').innerText = "Error Crítico de Red";
-    }
-
-    const [sendMove, getMove] = room.makeAction('m');
-    const [sendColor, getColor] = room.makeAction('c');
 
     // --- ESCENA 3D ---
     const scene = new THREE.Scene();
@@ -73,18 +49,62 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
     scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2));
-    scene.add(new THREE.GridHelper(100, 50, 0xff4b2b, 0x222222));
+    scene.add(new THREE.GridHelper(100, 50, 0x00ff88, 0x222222));
     cameraGroup.position.set(Math.random()*4, 1, Math.random()*4);
 
-    // --- INTERFAZ ---
-    document.getElementById('sens-slider').oninput = (e) => {
-        sensibilidad = parseFloat(e.target.value);
-        document.getElementById('sens-val').innerText = sensibilidad.toFixed(4);
-    };
+    // --- INICIALIZACIÓN DE RED ---
+    let sendMove, getMove, sendColor, getColor;
 
-    document.getElementById('btn-play').onclick = () => {
-        renderer.domElement.requestPointerLock();
-    };
+    function iniciarRed() {
+        try {
+            // Unimos a la sala
+            room = joinRoom(config, 'sala-estratocumulo-final');
+            
+            // Definimos acciones
+            const [sM, gM] = room.makeAction('m');
+            const [sC, gC] = room.makeAction('c');
+            
+            sendMove = sM; getMove = gM;
+            sendColor = sC; getColor = gC;
+
+            room.onPeerJoin(id => {
+                document.getElementById('status-text').innerText = "¡En línea!";
+                document.getElementById('status-text').style.color = "#00ff88";
+                sendColor(myColor, id);
+            });
+
+            room.onPeerLeave(id => {
+                if (peers[id]) { scene.remove(peers[id]); delete peers[id]; updateCount(); }
+            });
+
+            getColor((color, id) => {
+                if (!peers[id]) {
+                    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshPhongMaterial({ color }));
+                    mesh.position.y = 0.5;
+                    scene.add(mesh);
+                    peers[id] = mesh;
+                    updateCount();
+                }
+            });
+
+            getMove((data, id) => {
+                if (peers[id]) {
+                    peers[id].position.set(data.x, 0.5, data.z);
+                    peers[id].rotation.y = data.ry;
+                }
+            });
+
+        } catch (err) {
+            console.error("Error al iniciar Trystero:", err);
+            document.getElementById('status-text').innerText = "Fallo de conexión";
+        }
+    }
+
+    iniciarRed();
+
+    // --- LÓGICA DE JUEGO ---
+    let juegoIniciado = false;
+    document.getElementById('btn-play').onclick = () => renderer.domElement.requestPointerLock();
 
     document.addEventListener('pointerlockchange', () => {
         juegoIniciado = document.pointerLockElement === renderer.domElement;
@@ -92,42 +112,13 @@
         document.getElementById('ui').style.display = juegoIniciado ? 'block' : 'none';
     });
 
-    // --- RED ---
-    room.onPeerJoin(id => {
-        document.getElementById('status-text').innerText = "¡Conectado por Supabase!";
-        document.getElementById('status-text').style.color = "#00ff88";
-        sendColor(myColor, id);
-    });
-
-    room.onPeerLeave(id => {
-        if (peers[id]) { scene.remove(peers[id]); delete peers[id]; updateCount(); }
-    });
-
-    getColor((color, id) => {
-        if (!peers[id]) {
-            const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshPhongMaterial({ color }));
-            mesh.position.y = 0.5;
-            scene.add(mesh);
-            peers[id] = mesh;
-            updateCount();
-        }
-    });
-
-    getMove((data, id) => {
-        if (peers[id]) {
-            peers[id].position.set(data.x, 0.5, data.z);
-            peers[id].rotation.y = data.ry;
-        }
-    });
-
     function updateCount() { document.getElementById('count').innerText = Object.keys(peers).length + 1; }
 
-    // --- MOVIMIENTO ---
     let yaw = 0, pitch = 0;
     document.addEventListener('mousemove', (e) => {
         if (juegoIniciado) {
-            yaw -= e.movementX * sensibilidad;
-            pitch = Math.max(-1.5, Math.min(1.5, pitch - e.movementY * sensibilidad));
+            yaw -= e.movementX * 0.002;
+            pitch = Math.max(-1.5, Math.min(1.5, pitch - e.movementY * 0.002));
             cameraGroup.rotation.y = yaw;
             camera.rotation.x = pitch;
         }
@@ -148,7 +139,10 @@
             if (keys['s']) { cameraGroup.position.addScaledVector(front, -speed); moved = true; }
             if (keys['a']) { cameraGroup.position.addScaledVector(side, -speed); moved = true; }
             if (keys['d']) { cameraGroup.position.addScaledVector(side, speed); moved = true; }
-            if (moved) sendMove({ x: cameraGroup.position.x, z: cameraGroup.position.z, ry: yaw });
+            
+            if (moved && sendMove) {
+                sendMove({ x: cameraGroup.position.x, z: cameraGroup.position.z, ry: yaw });
+            }
         }
         renderer.render(scene, camera);
     }
