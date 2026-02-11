@@ -2,70 +2,74 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Test conexión multiplayer</title>
+  <title>Chat grupal WebSocket</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: system-ui, sans-serif; background: #0f1220; color: #eaeaf0; padding: 24px; }
-    .card { max-width: 520px; margin: auto; padding: 20px; border-radius: 12px; background: #171a2b; }
-    button { padding: 10px 14px; border-radius: 8px; border: 0; cursor: pointer; }
-    .ok { color: #6ee7b7; }
-    .err { color: #fca5a5; }
-    .log { font-family: ui-monospace, monospace; background: #0b0d18; padding: 10px; border-radius: 8px; height: 140px; overflow: auto; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; margin: 0; display: flex; justify-content: center; padding: 24px; }
+    .chat-container { width: 400px; background: #fff; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+    .messages { flex: 1; padding: 16px; overflow-y: auto; border-bottom: 1px solid #ddd; height: 300px; }
+    .message { margin-bottom: 8px; padding: 6px 10px; border-radius: 8px; background: #e1e1e1; }
+    .self { background: #a3d2ca; align-self: flex-end; }
+    .input-area { display: flex; padding: 10px; }
+    input { flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid #ccc; margin-right: 8px; }
+    button { padding: 8px 12px; border-radius: 8px; border: none; background: #3b82f6; color: #fff; cursor: pointer; }
+    button:disabled { background: #94a3b8; cursor: not-allowed; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Test WebSocket (WSS)</h1>
-    <p>Esto comprueba si tu red permite conexiones por <b>WSS (443)</b>.</p>
-    <button id="btn">Conectar</button>
-    <p id="status">Estado: <b>desconectado</b></p>
-    <div class="log" id="log"></div>
+  <div class="chat-container">
+    <div class="messages" id="messages"></div>
+    <div class="input-area">
+      <input type="text" id="msgInput" placeholder="Escribe tu mensaje..." />
+      <button id="sendBtn">Enviar</button>
+    </div>
   </div>
 
   <script>
-    const btn = document.getElementById('btn');
-    const statusEl = document.getElementById('status');
-    const logEl = document.getElementById('log');
-    let ws;
+    const URL = "wss://test-multiplayer-server.onrender.com"; // tu servidor WebSocket
+    const ws = new WebSocket(URL);
+    const messagesEl = document.getElementById('messages');
+    const msgInput = document.getElementById('msgInput');
+    const sendBtn = document.getElementById('sendBtn');
 
-    function log(msg) {
-      logEl.innerHTML += msg + '<br>';
-      logEl.scrollTop = logEl.scrollHeight;
+    function appendMessage(text, self=false) {
+      const div = document.createElement('div');
+      div.className = 'message' + (self ? ' self' : '');
+      div.textContent = text;
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
-    btn.onclick = () => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.close();
-        return;
-      }
-
-      // 👇 PON AQUÍ la URL WSS de tu servidor
-      const URL = "https://test-multiplayer-server.onrender.com";
-
-      log("Conectando a " + URL + " ...");
-      ws = new WebSocket(URL);
-
-      ws.onopen = () => {
-        statusEl.innerHTML = 'Estado: <b class="ok">conectado</b>';
-        log("✅ Conectado!");
-        ws.send("hola desde el navegador");
-      };
-
-      ws.onmessage = (e) => {
-        log("📩 Servidor dice: " + e.data);
-      };
-
-      ws.onerror = () => {
-        statusEl.innerHTML = 'Estado: <b class="err">error de conexión</b>';
-        log("❌ Error de conexión");
-      };
-
-      ws.onclose = () => {
-        statusEl.innerHTML = 'Estado: <b>desconectado</b>';
-        log("🔌 Conexión cerrada");
-      };
+    ws.onopen = () => {
+      appendMessage("✅ Conectado al chat!");
+      sendBtn.disabled = false;
     };
+
+    ws.onmessage = (e) => {
+      appendMessage(e.data);
+    };
+
+    ws.onclose = () => {
+      appendMessage("🔌 Conexión cerrada");
+      sendBtn.disabled = true;
+    };
+
+    ws.onerror = () => {
+      appendMessage("❌ Error de conexión");
+      sendBtn.disabled = true;
+    };
+
+    sendBtn.onclick = () => {
+      const msg = msgInput.value.trim();
+      if(msg === "") return;
+      ws.send(msg);
+      appendMessage(msg, true); // tu mensaje
+      msgInput.value = "";
+    };
+
+    msgInput.addEventListener('keypress', (e) => {
+      if(e.key === "Enter") sendBtn.click();
+    });
   </script>
 </body>
 </html>
-
