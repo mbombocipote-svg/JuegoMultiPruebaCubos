@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cubo FPS - Conexión Reforzada</title>
+    <title>Cubo FPS - Versión Final GitHub</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #05050a; font-family: 'Segoe UI', sans-serif; }
         #menu-inicio {
@@ -25,7 +25,7 @@
 
 <div id="menu-inicio">
     <h1 style="margin:0; color: #00ff88;">CUBO ARENA</h1>
-    <p id="status-text" style="color: #aaa;">Estado: Esperando...</p>
+    <p id="status-text" style="color: #aaa;">Estado: Conectando...</p>
     <div class="slider-container">
         <label>Sensibilidad: <span id="sens-val">0.0020</span></label><br><br>
         <input type="range" id="sens-slider" min="0.0005" max="0.01" step="0.0005" value="0.002">
@@ -36,30 +36,59 @@
 <div id="ui">Jugadores: <span id="count">1</span></div>
 
 <script type="module">
+    // Usamos esm.sh con ?bundle para evitar que el navegador tenga que pedir cientos de archivos pequeños
     import * as THREE from 'https://esm.sh/three@0.160.0';
-    import { joinRoom } from 'https://esm.sh/trystero@0.22.0/mqtt';
+    import { joinRoom } from 'https://esm.sh/trystero@0.22.0/mqtt?bundle';
 
     let sensibilidad = 0.002;
     let juegoIniciado = false;
     const myColor = Math.floor(Math.random() * 0xffffff);
     let peers = {};
 
-    // --- CONFIGURACIÓN DE RED REDUNDANTE ---
-    // Usamos varios servidores. Si uno falla, Trystero prueba el siguiente.
+    // Configuración optimizada para evitar Timeouts
     const config = { 
-        appId: 'cubo-arena-v5-final',
+        appId: 'arena-final-v10',
         mqttOpts: {
-            servers: [
-                'wss://broker.emqx.io:8084/mqtt',
-                'wss://broker.hivemq.com:8884/mqtt',
-                'wss://test.mosquitto.org:8081/mqtt'
-            ]
+            servers: ['wss://broker.hivemq.com:8884/mqtt']
         }
     };
     
-    const room = joinRoom(config, 'sala-estratocumulo-2026');
-    const [sendMove, getMove] = room.makeAction('m');
-    const [sendColor, getColor] = room.makeAction('c');
+    let room, sendMove, getMove, sendColor, getColor;
+
+    try {
+        room = joinRoom(config, 'sala-estratocumulo-final');
+        [sendMove, getMove] = room.makeAction('m');
+        [sendColor, getColor] = room.makeAction('c');
+
+        room.onPeerJoin(id => {
+            document.getElementById('status-text').innerText = "¡En Línea!";
+            document.getElementById('status-text').style.color = "#00ff88";
+            sendColor(myColor, id);
+        });
+
+        room.onPeerLeave(id => {
+            if (peers[id]) { scene.remove(peers[id]); delete peers[id]; updateCount(); }
+        });
+
+        getColor((color, id) => {
+            if (!peers[id]) {
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshPhongMaterial({ color }));
+                mesh.position.y = 0.5;
+                scene.add(mesh);
+                peers[id] = mesh;
+                updateCount();
+            }
+        });
+
+        getMove((data, id) => {
+            if (peers[id]) {
+                peers[id].position.set(data.x, 0.5, data.z);
+                peers[id].rotation.y = data.ry;
+            }
+        });
+    } catch (e) {
+        console.error("Error al iniciar red:", e);
+    }
 
     // --- ESCENA 3D ---
     const scene = new THREE.Scene();
@@ -76,10 +105,9 @@
     scene.add(new THREE.GridHelper(100, 50, 0x00ff88, 0x222222));
     cameraGroup.position.set(Math.random()*4, 1, Math.random()*4);
 
-    // --- LÓGICA DE INTERFAZ ---
-    const slider = document.getElementById('sens-slider');
-    slider.oninput = () => {
-        sensibilidad = parseFloat(slider.value);
+    // --- INTERFAZ ---
+    document.getElementById('sens-slider').oninput = (e) => {
+        sensibilidad = parseFloat(e.target.value);
         document.getElementById('sens-val').innerText = sensibilidad.toFixed(4);
     };
 
@@ -91,34 +119,6 @@
         juegoIniciado = document.pointerLockElement === renderer.domElement;
         document.getElementById('menu-inicio').style.display = juegoIniciado ? 'none' : 'block';
         document.getElementById('ui').style.display = juegoIniciado ? 'block' : 'none';
-    });
-
-    // --- RED ---
-    room.onPeerJoin(id => {
-        document.getElementById('status-text').innerText = "¡Conectado!";
-        document.getElementById('status-text').style.color = "#00ff88";
-        sendColor(myColor, id);
-    });
-
-    room.onPeerLeave(id => {
-        if (peers[id]) { scene.remove(peers[id]); delete peers[id]; updateCount(); }
-    });
-
-    getColor((color, id) => {
-        if (!peers[id]) {
-            const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshPhongMaterial({ color }));
-            mesh.position.y = 0.5;
-            scene.add(mesh);
-            peers[id] = mesh;
-            updateCount();
-        }
-    });
-
-    getMove((data, id) => {
-        if (peers[id]) {
-            peers[id].position.set(data.x, 0.5, data.z);
-            peers[id].rotation.y = data.ry;
-        }
     });
 
     function updateCount() { document.getElementById('count').innerText = Object.keys(peers).length + 1; }
@@ -149,7 +149,7 @@
             if (keys['s']) { cameraGroup.position.addScaledVector(front, -speed); moved = true; }
             if (keys['a']) { cameraGroup.position.addScaledVector(side, -speed); moved = true; }
             if (keys['d']) { cameraGroup.position.addScaledVector(side, speed); moved = true; }
-            if (moved) sendMove({ x: cameraGroup.position.x, z: cameraGroup.position.z, ry: yaw });
+            if (moved && sendMove) sendMove({ x: cameraGroup.position.x, z: cameraGroup.position.z, ry: yaw });
         }
         renderer.render(scene, camera);
     }
