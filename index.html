@@ -3,98 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cubo FPS - Versión Torrent Estable</title>
+    <title>Cubo FPS Mouse Control P2P</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #05050a; font-family: 'Segoe UI', sans-serif; }
-        
+        body { margin: 0; overflow: hidden; background-color: #111; cursor: crosshair; }
         #ui {
             position: absolute; top: 20px; left: 20px; color: white;
-            background: rgba(0, 0, 0, 0.8); padding: 15px; border-radius: 10px;
-            pointer-events: none; border: 1px solid #333; display: none;
+            font-family: sans-serif; background: rgba(0, 0, 0, 0.8);
+            padding: 15px; border-radius: 10px; pointer-events: none;
+            border: 1px solid #333; z-index: 10;
         }
-
-        #menu-inicio {
+        #instrucciones {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(10, 10, 20, 0.95); padding: 30px; border-radius: 20px;
-            color: white; text-align: center; border: 2px solid #00d4ff;
-            box-shadow: 0 0 30px rgba(0, 212, 255, 0.2); width: 320px; z-index: 100;
+            color: white; font-family: sans-serif; text-align: center;
+            background: rgba(0,0,0,0.6); padding: 20px; border-radius: 10px;
         }
-
-        .slider-container { margin: 25px 0; }
-        input[type=range] { width: 100%; cursor: pointer; accent-color: #00d4ff; }
-        
-        button {
-            background: #00d4ff; border: none; padding: 12px 40px;
-            font-size: 1.2em; font-weight: bold; border-radius: 8px;
-            cursor: pointer; transition: 0.3s; color: #000;
-        }
-        button:hover { background: #0099ff; transform: scale(1.05); }
-
-        #crosshair {
-            position: absolute; top: 50%; left: 50%;
-            width: 12px; height: 12px; border: 2px solid #00d4ff;
-            border-radius: 50%; transform: translate(-50%, -50%);
-            pointer-events: none; display: none;
-        }
-
-        #status-msg { font-size: 0.8em; margin-top: 10px; color: #888; }
+        .status-on { color: #00ff88; }
     </style>
 </head>
 <body>
 
-<div id="menu-inicio">
-    <h1 style="margin-top:0; color: #00d4ff;">CUBO ARENA</h1>
-    <p>Multijugador P2P (Torrent Mode)</p>
-    <div class="slider-container">
-        <label>Sensibilidad: <span id="sens-val">0.0020</span></label><br><br>
-        <input type="range" id="sens-slider" min="0.0005" max="0.01" step="0.0005" value="0.002">
-    </div>
-    <button id="btn-play">CONECTAR</button>
-    <div id="status-msg">Esperando inicio...</div>
-</div>
-
 <div id="ui">
-    <h3 style="margin:0 0 5px 0; color: #00d4ff;">En Línea</h3>
-    <div>Jugadores en sala: <span id="count">1</span></div>
+    <h3 style="margin:0 0 10px 0">Cubo Arena Multi</h3>
+    <div>Estado: <span id="status">Conectando...</span></div>
+    <div>Jugadores: <span id="count">1</span></div>
+    <small style="display:block; margin-top:10px; color: #aaa;">Mover: W, A, S, D | Vista: RATÓN</small>
 </div>
 
-<div id="crosshair"></div>
+<div id="instrucciones">
+    <h2>Haz CLIC para jugar</h2>
+    <p>(Esc para salir del ratón)</p>
+</div>
 
 <script type="module">
-    // Cambiamos a la versión "torrent" de Trystero, más compatible
     import * as THREE from 'https://esm.sh/three@0.160.0';
-    import { joinRoom } from 'https://esm.sh/trystero@0.22.0/torrent';
+    import { joinRoom } from 'https://esm.sh/trystero@0.22.0/nostr';
 
-    let sensibilidad = 0.002;
-    let juegoIniciado = false;
+    // --- CONFIGURACIÓN ---
+    const config = { appId: 'cubo-fps-mouse-99' };
     const myColor = Math.floor(Math.random() * 0xffffff);
     let peers = {};
 
-    // --- UI LOGIC ---
-    const slider = document.getElementById('sens-slider');
-    const sensDisp = document.getElementById('sens-val');
-    const btnPlay = document.getElementById('btn-play');
-    const statusMsg = document.getElementById('status-msg');
-
-    slider.oninput = () => {
-        sensibilidad = parseFloat(slider.value);
-        sensDisp.innerText = sensibilidad.toFixed(4);
-    };
-
-    btnPlay.onclick = () => {
-        // Intentar bloquear el ratón (maneja el error de SecurityError internamente)
-        const request = renderer.domElement.requestPointerLock();
-        if (request && request.catch) {
-            request.catch(() => console.log("Click más lento para bloquear..."));
-        }
-    };
-
-    // --- THREE.JS SETUP ---
+    // --- ESCENA ---
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x05050a);
-    scene.fog = new THREE.Fog(0x05050a, 5, 35);
+    scene.background = new THREE.Color(0x0a0a12);
+    scene.fog = new THREE.Fog(0x0a0a12, 2, 30);
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    // Un contenedor para la cámara para manejar rotación X e Y por separado
     const cameraGroup = new THREE.Group();
     cameraGroup.add(camera);
     scene.add(cameraGroup);
@@ -103,70 +58,75 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x000000, 2));
-    const grid = new THREE.GridHelper(100, 50, 0x00d4ff, 0x111122);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2));
+    const grid = new THREE.GridHelper(100, 50, 0x00ffff, 0x222222);
     scene.add(grid);
 
-    cameraGroup.position.set(Math.random() * 6 - 3, 1, Math.random() * 6 - 3);
+    cameraGroup.position.set(Math.random() * 4, 1, 5);
 
-    // --- MOUSE & PAUSE ---
-    document.addEventListener('pointerlockchange', () => {
-        if (document.pointerLockElement === renderer.domElement) {
-            juegoIniciado = true;
-            document.getElementById('menu-inicio').style.display = 'none';
-            document.getElementById('ui').style.display = 'block';
-            document.getElementById('crosshair').style.display = 'block';
-        } else {
-            document.getElementById('menu-inicio').style.display = 'block';
-            document.getElementById('ui').style.display = 'none';
-            document.getElementById('crosshair').style.display = 'none';
-        }
+    // --- CONTROL DEL RATÓN (Pointer Lock) ---
+    const inst = document.getElementById('instrucciones');
+    
+    document.addEventListener('click', () => {
+        renderer.domElement.requestPointerLock();
     });
 
-    let pitch = 0, yaw = 0;
+    document.addEventListener('pointerlockchange', () => {
+        inst.style.display = document.pointerLockElement === renderer.domElement ? 'none' : 'block';
+    });
+
+    let pitch = 0; // Rotación arriba/abajo
+    let yaw = 0;   // Rotación izquierda/derecha
+
     document.addEventListener('mousemove', (e) => {
         if (document.pointerLockElement === renderer.domElement) {
-            yaw -= e.movementX * sensibilidad;
-            pitch -= e.movementY * sensibilidad;
+            yaw -= e.movementX * 0.002;
+            pitch -= e.movementY * 0.002;
+
+            // Limitar rotación arriba/abajo para no dar la vuelta completa
             pitch = Math.max(-Math.PI/2.1, Math.min(Math.PI/2.1, pitch));
+
             cameraGroup.rotation.y = yaw;
             camera.rotation.x = pitch;
         }
     });
 
-    // --- MULTIPLAYER (TORRENT STRATEGY) ---
-    // El ID de la sala debe ser único para que no te cruces con otros experimentos
-    const room = joinRoom({ appId: 'cubo-arena-v2-final' }, 'sala-principal-xyz');
+    // --- RED (P2P) ---
+    const room = joinRoom(config, 'sala-raton-1');
     const [sendMove, getMove] = room.makeAction('m');
     const [sendColor, getColor] = room.makeAction('c');
 
-    room.onPeerJoin(id => {
-        console.log("Peer conectado:", id);
-        statusMsg.innerText = "¡Jugador encontrado!";
-        sendColor(myColor, id);
+    room.onPeerJoin(peerId => {
+        document.getElementById('status').innerText = "En línea";
+        document.getElementById('status').className = "status-on";
+        sendColor(myColor, peerId);
     });
 
-    room.onPeerLeave(id => {
-        if (peers[id]) { scene.remove(peers[id]); delete peers[id]; updateCount(); }
-    });
-
-    getColor((color, id) => {
-        if (!peers[id]) {
-            const mesh = new THREE.Mesh(
-                new THREE.BoxGeometry(1, 1, 1), 
-                new THREE.MeshPhongMaterial({ color, emissive: color, emissiveIntensity: 0.2 })
-            );
-            mesh.position.y = 0.5;
-            scene.add(mesh);
-            peers[id] = mesh;
+    room.onPeerLeave(peerId => {
+        if (peers[peerId]) {
+            scene.remove(peers[peerId]);
+            delete peers[peerId];
             updateCount();
         }
     });
 
-    getMove((data, id) => {
-        if (peers[id]) {
-            peers[id].position.set(data.x, data.y, data.z);
-            peers[id].rotation.y = data.ry;
+    getColor((color, peerId) => {
+        if (!peers[peerId]) {
+            const mesh = new THREE.Mesh(
+                new THREE.BoxGeometry(1, 1, 1),
+                new THREE.MeshPhongMaterial({ color: color })
+            );
+            mesh.position.y = 0.5;
+            scene.add(mesh);
+            peers[peerId] = mesh;
+            updateCount();
+        }
+    });
+
+    getMove((data, peerId) => {
+        if (peers[peerId]) {
+            peers[peerId].position.set(data.x, data.y, data.z);
+            peers[peerId].rotation.y = data.ry;
         }
     });
 
@@ -174,28 +134,36 @@
         document.getElementById('count').innerText = Object.keys(peers).length + 1;
     }
 
-    // --- GAME LOOP ---
+    // --- MOVIMIENTO TECLADO ---
     const keys = {};
     window.onkeydown = (e) => keys[e.key.toLowerCase()] = true;
     window.onkeyup = (e) => keys[e.key.toLowerCase()] = false;
 
     function loop() {
         requestAnimationFrame(loop);
-        if (juegoIniciado && document.pointerLockElement === renderer.domElement) {
-            let moved = false;
-            const speed = 0.15;
-            const front = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-            const side = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+        
+        let moved = false;
+        const speed = 0.15;
+        const dir = new THREE.Vector3();
+        
+        // Obtener dirección frontal basada en la rotación del grupo (yaw)
+        const front = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+        const side = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
 
-            if (keys['w']) { cameraGroup.position.addScaledVector(front, speed); moved = true; }
-            if (keys['s']) { cameraGroup.position.addScaledVector(front, -speed); moved = true; }
-            if (keys['a']) { cameraGroup.position.addScaledVector(side, -speed); moved = true; }
-            if (keys['d']) { cameraGroup.position.addScaledVector(side, speed); moved = true; }
+        if (keys['w']) { cameraGroup.position.addScaledVector(front, speed); moved = true; }
+        if (keys['s']) { cameraGroup.position.addScaledVector(front, -speed); moved = true; }
+        if (keys['a']) { cameraGroup.position.addScaledVector(side, -speed); moved = true; }
+        if (keys['d']) { cameraGroup.position.addScaledVector(side, speed); moved = true; }
 
-            if (moved) {
-                sendMove({ x: cameraGroup.position.x, y: 0.5, z: cameraGroup.position.z, ry: yaw });
-            }
+        if (moved || document.pointerLockElement === renderer.domElement) {
+            sendMove({ 
+                x: cameraGroup.position.x, 
+                y: 0.5, 
+                z: cameraGroup.position.z, 
+                ry: yaw 
+            });
         }
+
         renderer.render(scene, camera);
     }
 
