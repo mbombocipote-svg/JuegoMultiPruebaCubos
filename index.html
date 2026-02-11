@@ -1,143 +1,70 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Cubo FPS - Versión Ultra Estable</title>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #05050a; font-family: sans-serif; }
-        #menu-inicio {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(10, 10, 25, 0.95); padding: 30px; border-radius: 20px;
-            color: white; text-align: center; border: 2px solid #00ff88; z-index: 100;
-        }
-        button {
-            background: #00ff88; border: none; padding: 12px 40px;
-            font-size: 1.1em; font-weight: bold; border-radius: 8px;
-            cursor: pointer; transition: 0.3s;
-        }
-        #ui { position: absolute; top: 20px; left: 20px; color: white; display: none; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; }
-    </style>
+  <meta charset="utf-8" />
+  <title>Test conexión multiplayer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0f1220; color: #eaeaf0; padding: 24px; }
+    .card { max-width: 520px; margin: auto; padding: 20px; border-radius: 12px; background: #171a2b; }
+    button { padding: 10px 14px; border-radius: 8px; border: 0; cursor: pointer; }
+    .ok { color: #6ee7b7; }
+    .err { color: #fca5a5; }
+    .log { font-family: ui-monospace, monospace; background: #0b0d18; padding: 10px; border-radius: 8px; height: 140px; overflow: auto; }
+  </style>
 </head>
 <body>
+  <div class="card">
+    <h1>Test WebSocket (WSS)</h1>
+    <p>Esto comprueba si tu red permite conexiones por <b>WSS (443)</b>.</p>
+    <button id="btn">Conectar</button>
+    <p id="status">Estado: <b>desconectado</b></p>
+    <div class="log" id="log"></div>
+  </div>
 
-<div id="menu-inicio">
-    <h1 style="margin:0; color: #00ff88;">CUBO ARENA</h1>
-    <p id="status-text" style="color: #aaa;">Estado: Conectando...</p>
-    <button id="btn-play">ENTRAR A JUGAR</button>
-</div>
+  <script>
+    const btn = document.getElementById('btn');
+    const statusEl = document.getElementById('status');
+    const logEl = document.getElementById('log');
+    let ws;
 
-<div id="ui">Jugadores: <span id="count">1</span></div>
-
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "trystero": "https://unpkg.com/trystero@0.22.0/dist/mqtt.min.js"
-  }
-}
-</script>
-
-<script type="module">
-    import * as THREE from 'three';
-    import { joinRoom } from 'trystero';
-
-    const config = { appId: 'arena-total-2026' };
-    const myColor = Math.floor(Math.random() * 0xffffff);
-    let peers = {};
-    let room, sendMove, getMove, sendColor, getColor;
-
-    // --- ESCENA 3D ---
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0a12);
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const cameraGroup = new THREE.Group();
-    cameraGroup.add(camera);
-    scene.add(cameraGroup);
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2));
-    scene.add(new THREE.GridHelper(100, 50, 0x00ff88, 0x222222));
-    cameraGroup.position.set(Math.random()*4, 1, Math.random()*4);
-
-    // --- INICIALIZAR RED ---
-    try {
-        room = joinRoom(config, 'sala-unica-final');
-        [sendMove, getMove] = room.makeAction('m');
-        [sendColor, getColor] = room.makeAction('c');
-
-        room.onPeerJoin(id => {
-            document.getElementById('status-text').innerText = "¡En línea!";
-            document.getElementById('status-text').style.color = "#00ff88";
-            sendColor(myColor, id);
-        });
-
-        room.onPeerLeave(id => {
-            if (peers[id]) { scene.remove(peers[id]); delete peers[id]; updateCount(); }
-        });
-
-        getColor((color, id) => {
-            if (!peers[id]) {
-                const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshPhongMaterial({ color }));
-                mesh.position.y = 0.5;
-                scene.add(mesh);
-                peers[id] = mesh;
-                updateCount();
-            }
-        });
-
-        getMove((data, id) => {
-            if (peers[id]) {
-                peers[id].position.set(data.x, 0.5, data.z);
-                peers[id].rotation.y = data.ry;
-            }
-        });
-    } catch (e) {
-        console.error("Red no disponible");
+    function log(msg) {
+      logEl.innerHTML += msg + '<br>';
+      logEl.scrollTop = logEl.scrollHeight;
     }
 
-    // --- LÓGICA JUEGO ---
-    let juegoIniciado = false;
-    document.getElementById('btn-play').onclick = () => renderer.domElement.requestPointerLock();
-    document.addEventListener('pointerlockchange', () => {
-        juegoIniciado = document.pointerLockElement === renderer.domElement;
-        document.getElementById('menu-inicio').style.display = juegoIniciado ? 'none' : 'block';
-        document.getElementById('ui').style.display = juegoIniciado ? 'block' : 'none';
-    });
+    btn.onclick = () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+        return;
+      }
 
-    function updateCount() { document.getElementById('count').innerText = Object.keys(peers).length + 1; }
+      // 👇 PON AQUÍ la URL WSS de tu servidor
+      const URL = "wss://TU-SERVIDOR-AQUI.onrender.com";
 
-    let yaw = 0, pitch = 0;
-    document.addEventListener('mousemove', (e) => {
-        if (juegoIniciado) {
-            yaw -= e.movementX * 0.002;
-            pitch = Math.max(-1.5, Math.min(1.5, pitch - e.movementY * 0.002));
-            cameraGroup.rotation.y = yaw;
-            camera.rotation.x = pitch;
-        }
-    });
+      log("Conectando a " + URL + " ...");
+      ws = new WebSocket(URL);
 
-    const keys = {};
-    window.onkeydown = (e) => keys[e.key.toLowerCase()] = true;
-    window.onkeyup = (e) => keys[e.key.toLowerCase()] = false;
+      ws.onopen = () => {
+        statusEl.innerHTML = 'Estado: <b class="ok">conectado</b>';
+        log("✅ Conectado!");
+        ws.send("hola desde el navegador");
+      };
 
-    function loop() {
-        requestAnimationFrame(loop);
-        if (juegoIniciado) {
-            const speed = 0.15;
-            const front = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-            const side = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-            let moved = false;
-            if (keys['w']) { cameraGroup.position.addScaledVector(front, speed); moved = true; }
-            if (keys['s']) { cameraGroup.position.addScaledVector(front, -speed); moved = true; }
-            if (keys['a']) { cameraGroup.position.addScaledVector(side, -speed); moved = true; }
-            if (keys['d']) { cameraGroup.position.addScaledVector(side, speed); moved = true; }
-            if (moved && sendMove) sendMove({ x: cameraGroup.position.x, z: cameraGroup.position.z, ry: yaw });
-        }
-        renderer.render(scene, camera);
-    }
-    loop();
-</script>
+      ws.onmessage = (e) => {
+        log("📩 Servidor dice: " + e.data);
+      };
+
+      ws.onerror = () => {
+        statusEl.innerHTML = 'Estado: <b class="err">error de conexión</b>';
+        log("❌ Error de conexión");
+      };
+
+      ws.onclose = () => {
+        statusEl.innerHTML = 'Estado: <b>desconectado</b>';
+        log("🔌 Conexión cerrada");
+      };
+    };
+  </script>
 </body>
 </html>
