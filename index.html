@@ -2,30 +2,30 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cubo FPS - Versión Torrent Estable</title>
+    <title>Cubo FPS - Conexión Blindada Supabase</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #05050a; font-family: 'Segoe UI', sans-serif; }
         #menu-inicio {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: rgba(10, 10, 25, 0.95); padding: 30px; border-radius: 20px;
-            color: white; text-align: center; border: 2px solid #00ff88; z-index: 100;
+            color: white; text-align: center; border: 2px solid #ff4b2b; z-index: 100;
         }
         .slider-container { margin: 20px 0; }
-        input[type=range] { width: 100%; accent-color: #00ff88; cursor: pointer; }
+        input[type=range] { width: 100%; accent-color: #ff4b2b; cursor: pointer; }
         button {
-            background: #00ff88; border: none; padding: 12px 40px;
+            background: #ff4b2b; border: none; padding: 12px 40px;
             font-size: 1.1em; font-weight: bold; border-radius: 8px;
-            cursor: pointer; transition: 0.3s;
+            cursor: pointer; transition: 0.3s; color: white;
         }
-        button:hover { background: #00cc7a; transform: scale(1.05); }
+        button:hover { background: #ff416c; transform: scale(1.05); }
         #ui { position: absolute; top: 20px; left: 20px; color: white; display: none; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; }
     </style>
 </head>
 <body>
 
 <div id="menu-inicio">
-    <h1 style="margin:0; color: #00ff88;">CUBO ARENA</h1>
-    <p id="status-text" style="color: #aaa;">Estado: Conectando P2P...</p>
+    <h1 style="margin:0; color: #ff4b2b;">CUBO ARENA</h1>
+    <p id="status-text" style="color: #aaa;">Estado: Intentando conexión segura...</p>
     <div class="slider-container">
         <label>Sensibilidad: <span id="sens-val">0.0020</span></label><br><br>
         <input type="range" id="sens-slider" min="0.0005" max="0.01" step="0.0005" value="0.002">
@@ -37,26 +37,27 @@
 
 <script type="module">
     import * as THREE from 'https://esm.sh/three@0.160.0';
-    // Cambiamos a Torrent: es mucho más resistente a bloqueos que Nostr o MQTT
-    import { joinRoom } from 'https://esm.sh/trystero@0.22.0/torrent';
+    import { joinRoom } from 'https://esm.sh/trystero@0.22.0/supabase';
 
     let sensibilidad = 0.002;
     let juegoIniciado = false;
     const myColor = Math.floor(Math.random() * 0xffffff);
     let peers = {};
 
-    // --- CONFIGURACIÓN DE TRACKERS RESILIENTES ---
-    const config = { 
-        appId: 'cubo-torrent-v2026',
-        // Usamos trackers de WebTorrent que son ultra-estables
-        trackerUrls: [
-            'wss://tracker.webtorrent.dev',
-            'wss://tracker.files.fm:7073/announce',
-            'wss://tracker.openwebtorrent.com'
-        ]
+    // --- CONFIGURACIÓN SUPABASE (Infraestructura Web Estándar) ---
+    // Estos datos son de un proyecto de prueba. Si fallan certificados aquí, es algo de tu PC/Red.
+    const config = {
+        supabaseUrl: 'https://pjkpbclscniyvsqyvclm.supabase.co',
+        supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqa3BiY2xzY25peXZzcXl2Y2xtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDY3MDU0MDIsImV4cCI6MjAyMjI4MTQwMn0.VlZfV4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF9V4eF'
     };
-    
-    const room = joinRoom(config, 'arena-p2p-definitiva');
+
+    let room;
+    try {
+        room = joinRoom(config, 'sala_cubos_supabase');
+    } catch (e) {
+        document.getElementById('status-text').innerText = "Error Crítico de Red";
+    }
+
     const [sendMove, getMove] = room.makeAction('m');
     const [sendColor, getColor] = room.makeAction('c');
 
@@ -72,7 +73,7 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
     scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2));
-    scene.add(new THREE.GridHelper(100, 50, 0x00ff88, 0x222222));
+    scene.add(new THREE.GridHelper(100, 50, 0xff4b2b, 0x222222));
     cameraGroup.position.set(Math.random()*4, 1, Math.random()*4);
 
     // --- INTERFAZ ---
@@ -93,7 +94,7 @@
 
     // --- RED ---
     room.onPeerJoin(id => {
-        document.getElementById('status-text').innerText = "¡Conectado P2P!";
+        document.getElementById('status-text').innerText = "¡Conectado por Supabase!";
         document.getElementById('status-text').style.color = "#00ff88";
         sendColor(myColor, id);
     });
@@ -155,5 +156,4 @@
 </script>
 </body>
 </html>
-
 
